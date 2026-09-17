@@ -60,8 +60,6 @@ MonoBehaviour:
   _alignmentWeight: 1
   _cohesionWeight: 1
   _damageToInterestObjectPerSecond: 20
-  _detectedHunter: {fileID: 0}
-  _targetInterestObject: {fileID: 0}
 --- !u!1 &4679234946560772131
 GameObject:
   m_ObjectHideFlags: 0
@@ -74,6 +72,7 @@ GameObject:
   - component: {fileID: 6347661943367479190}
   - component: {fileID: 2331594937926803289}
   - component: {fileID: 4659817746630486929}
+  - component: {fileID: 2918642888626764771}
   m_Layer: 0
   m_Name: Boid_Visual
   m_TagString: Untagged
@@ -177,6 +176,22 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &2918642888626764771
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4679234946560772131}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67d8f7e777052fa4aaef2868c6ce53d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AgentFeedback
+  _meshRenderer: {fileID: 0}
+  _normalColor: {r: 0.24705884, g: 0.72156864, b: 0.25882354, a: 1}
+  _evadeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  _deadColor: {r: 0.8584906, g: 0.0519812, b: 0, a: 1}
 --- !u!1 &8154877005896644182
 GameObject:
   m_ObjectHideFlags: 0
