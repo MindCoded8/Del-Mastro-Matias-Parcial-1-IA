@@ -8,7 +8,8 @@ public abstract class Agent : MonoBehaviour
 
     protected Vector3 _velocity;
 
-    public Vector3 Velocity => _velocity;
+    // Propiedad con lectura (get) y escritura (set) pública para permitir modificaciones desde la FSM
+    public Vector3 Velocity { get => _velocity; set => _velocity = value; }
     public float MaxSpeed => _maxSpeed;
 
     protected virtual void Update()
