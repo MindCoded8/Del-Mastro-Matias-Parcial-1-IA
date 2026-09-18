@@ -148,10 +148,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7c7e9d832f116549bf576229aeb63ee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HunterAgent
-  _maxSpeed: 5
-  _maxSteering: 5
-  _perceptionRadius: 12
-  _rangeAttackRadius: 9
+  _maxSpeed: 6
+  _maxSteering: 6
+  _perceptionRadius: 15
+  _rangeAttackRadius: 6
   _meleeAttackRadius: 2
   _tba: 3
   _spawnInterestObjectInterval: 6
