@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+
+
 using UnityEngine;
 
 public class PatrolState : State
@@ -6,7 +7,6 @@ public class PatrolState : State
     private HunterAgent _hunter;
     private int _currentWaypointIndex = 0;
     private float _spawnTimer = 0f;
-    private List<InterestObject> _spawnedObjects = new List<InterestObject>();
 
     public PatrolState(HunterAgent hunter, StateMachine stateMachine) : base(stateMachine)
     {
@@ -16,35 +16,31 @@ public class PatrolState : State
     public override void Enter()
     {
         _spawnTimer = 0f;
+        _hunter.UpdateHeadFeedback("PATROL", Color.orange);
     }
 
     public override void Update()
     {
-        // 1. Prioridad: Detección de Boids caidos para recolectar (Gather).
         BoidAgent deadBoid = FindDeadBoid();
         if (deadBoid != null)
         {
             _hunter.TargetBoid = deadBoid;
-            stateMachine.ChangeState(HunterStates.Gather);
+            StateMachine.ChangeState(HunterStates.Gather);
             return;
         }
 
-        // 2. Detección de Boids vivos para atacar (Attack) si el TBA Finalizó
         if (_hunter.TBATimer >= _hunter.TBA)
         {
             BoidAgent targetBoid = FindTargetBoid();
             if (targetBoid != null)
             {
                 _hunter.TargetBoid = targetBoid;
-                stateMachine.ChangeState(HunterStates.Attack);
+                StateMachine.ChangeState(HunterStates.Attack);
                 return;
             }
         }
 
-        // 3. Recorrido de Waypoints
         PatrolWaypoints();
-
-        // 4. Generación periódica de Objetos de Interés (Máximo 5 activos)
         HandleInterestObjectSpawning();
     }
 
@@ -53,13 +49,19 @@ public class PatrolState : State
         if (_hunter.Waypoints == null || _hunter.Waypoints.Count == 0) return;
 
         Transform targetWaypoint = _hunter.Waypoints[_currentWaypointIndex];
-        Vector3 steering = _hunter.Arrive(targetWaypoint.position);
+        Vector3 targetPos = targetWaypoint.position;
+        targetPos.y = 0f;
+
+        Vector3 steering = _hunter.Arrive(targetPos);
         _hunter.Velocity += steering;
 
-        float sqrDistance = (targetWaypoint.position - _hunter.transform.position).sqrMagnitude;
+        Vector3 currentPos = _hunter.transform.position;
+        currentPos.y = 0f;
+
+        float sqrDistance = (targetPos - currentPos).sqrMagnitude;
         float stopRadius = 0.3f;
 
-        if (sqrDistance < stopRadius * stopRadius)
+        if (sqrDistance <= stopRadius * stopRadius)
         {
             _currentWaypointIndex = (_currentWaypointIndex + 1) % _hunter.Waypoints.Count;
         }
@@ -67,9 +69,7 @@ public class PatrolState : State
 
     private void HandleInterestObjectSpawning()
     {
-        _spawnedObjects.RemoveAll(item => item == null || !item.gameObject.activeInHierarchy);
-
-        if (_spawnedObjects.Count >= 5) return;
+        if (InterestObject.AllInterestObjects.Count >= 5) return;
 
         _spawnTimer += Time.deltaTime;
 
@@ -79,17 +79,15 @@ public class PatrolState : State
 
             if (_hunter.InterestObjectPrefab != null)
             {
-                InterestObject newObj = Object.Instantiate(_hunter.InterestObjectPrefab, _hunter.transform.position, Quaternion.identity);
-                _spawnedObjects.Add(newObj);
+                Vector3 spawnPos = _hunter.transform.position;
+                spawnPos.y = 0f;
 
-                // Notificar a los Boids mediante autoregistro estático
-                for (int i = 0; i < BoidAgent.AllBoids.Count; i++)
+                if (Bounds.Instance != null)
                 {
-                    if (BoidAgent.AllBoids[i] != null && !BoidAgent.AllBoids[i].IsDead)
-                    {
-                        BoidAgent.AllBoids[i].RegisterInterestObject(newObj);
-                    }
+                    spawnPos = Bounds.Instance.OutOfBounds(spawnPos);
                 }
+
+                Object.Instantiate(_hunter.InterestObjectPrefab, spawnPos, Quaternion.identity);
             }
         }
     }
@@ -97,13 +95,18 @@ public class PatrolState : State
     private BoidAgent FindDeadBoid()
     {
         float sqrPerception = _hunter.PerceptionRadius * _hunter.PerceptionRadius;
+        Vector3 hunterPos = _hunter.transform.position;
+        hunterPos.y = 0f;
 
         for (int i = 0; i < BoidAgent.AllBoids.Count; i++)
         {
             BoidAgent boid = BoidAgent.AllBoids[i];
             if (boid != null && boid.IsDead && !boid.IsCollected && boid.gameObject.activeInHierarchy)
             {
-                if ((boid.transform.position - _hunter.transform.position).sqrMagnitude < sqrPerception)
+                Vector3 boidPos = boid.transform.position;
+                boidPos.y = 0f;
+
+                if ((boidPos - hunterPos).sqrMagnitude <= sqrPerception)
                 {
                     return boid;
                 }
@@ -116,6 +119,9 @@ public class PatrolState : State
     private BoidAgent FindTargetBoid()
     {
         float sqrPerception = _hunter.PerceptionRadius * _hunter.PerceptionRadius;
+        Vector3 hunterPos = _hunter.transform.position;
+        hunterPos.y = 0f;
+
         BoidAgent closest = null;
         float minSqrDistance = float.MaxValue;
 
@@ -124,7 +130,11 @@ public class PatrolState : State
             BoidAgent boid = BoidAgent.AllBoids[i];
             if (boid != null && !boid.IsDead && boid.gameObject.activeInHierarchy)
             {
-                float sqrDist = (boid.transform.position - _hunter.transform.position).sqrMagnitude;
+                Vector3 boidPos = boid.transform.position;
+                boidPos.y = 0f;
+
+                float sqrDist = (boidPos - hunterPos).sqrMagnitude;
+
                 if (sqrDist <= sqrPerception && sqrDist < minSqrDistance)
                 {
                     minSqrDistance = sqrDist;

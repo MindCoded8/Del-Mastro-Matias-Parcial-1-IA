@@ -1,3 +1,5 @@
+
+
 using UnityEngine;
 
 public class GatherState : State
@@ -14,21 +16,27 @@ public class GatherState : State
     public override void Enter()
     {
         _gatherTimer = 0f;
+        _hunter.UpdateHeadFeedback("GATHER", Color.blue);
     }
 
     public override void Update()
     {
         BoidAgent target = _hunter.TargetBoid;
 
-        if (target == null || !target.IsDead || target.IsCollected)
+        if (target == null || !target.IsDead || target.IsCollected || !target.gameObject.activeInHierarchy)
         {
             _hunter.TargetBoid = null;
-            stateMachine.ChangeState(HunterStates.Patrol);
+            StateMachine.ChangeState(HunterStates.Patrol);
             return;
         }
 
         Vector3 targetPos = target.transform.position;
-        float sqrDistance = (targetPos - _hunter.transform.position).sqrMagnitude;
+        targetPos.y = 0f;
+
+        Vector3 hunterPos = _hunter.transform.position;
+        hunterPos.y = 0f;
+
+        float sqrDistance = (targetPos - hunterPos).sqrMagnitude;
         float interactDist = 0.8f;
 
         if (sqrDistance > interactDist * interactDist)
@@ -45,7 +53,7 @@ public class GatherState : State
             {
                 target.CollectByHunter();
                 _hunter.TargetBoid = null;
-                stateMachine.ChangeState(HunterStates.Patrol);
+                StateMachine.ChangeState(HunterStates.Patrol);
             }
         }
     }
