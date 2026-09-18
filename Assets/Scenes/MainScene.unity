@@ -151,7 +151,7 @@ MonoBehaviour:
   _maxSpeed: 6
   _maxSteering: 6
   _perceptionRadius: 15
-  _rangeAttackRadius: 6
+  _rangeAttackRadius: 9
   _meleeAttackRadius: 2
   _tba: 3
   _spawnInterestObjectInterval: 6
