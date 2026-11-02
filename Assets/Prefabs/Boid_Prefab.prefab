@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5877721953735008237}
   - component: {fileID: 2688773965908187745}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Boid_Prefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -45,12 +45,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7cd765713d4d684caa547903fd32aab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
-  _maxSpeed: 5
+  _maxSpeed: 4
   _maxSteering: 5
   _maxHealth: 100
   _currentHealth: 0
   _respawnDelay: 3
-  _separationRadius: 2
+  _separationRadius: 3
   _flockingRadius: 4
   _hunterDetectionRadius: 6
   _interestObjectDetectionRadius: 10
@@ -59,7 +59,15 @@ MonoBehaviour:
   _separationWeight: 1.5
   _alignmentWeight: 1
   _cohesionWeight: 1
-  _damageToInterestObjectPerSecond: 20
+  _boidLayerMask:
+    serializedVersion: 2
+    m_Bits: 64
+  _hunterLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  _interestObjectLayerMask:
+    serializedVersion: 2
+    m_Bits: 256
 --- !u!1 &4679234946560772131
 GameObject:
   m_ObjectHideFlags: 0
@@ -73,7 +81,7 @@ GameObject:
   - component: {fileID: 2331594937926803289}
   - component: {fileID: 4659817746630486929}
   - component: {fileID: 2918642888626764771}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Boid_Visual
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -195,6 +203,8 @@ MonoBehaviour:
   _textOffset: {x: 0, y: 2.2, z: 0}
   _fontSize: 24
   _characterSize: 0.15
+  _shotColor: {r: 0, g: 1, b: 1, a: 1}
+  _shotDuration: 0.15
 --- !u!1 &8154877005896644182
 GameObject:
   m_ObjectHideFlags: 0
@@ -207,7 +217,7 @@ GameObject:
   - component: {fileID: 5938546294574539449}
   - component: {fileID: 2328284537105836831}
   - component: {fileID: 9182129253734812310}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}

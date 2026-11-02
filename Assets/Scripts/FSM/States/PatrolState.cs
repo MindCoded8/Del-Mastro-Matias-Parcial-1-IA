@@ -1,5 +1,3 @@
-
-
 using UnityEngine;
 
 public class PatrolState : State
@@ -8,7 +6,10 @@ public class PatrolState : State
     private int _currentWaypointIndex = 0;
     private float _spawnTimer = 0f;
 
-    public PatrolState(HunterAgent hunter, StateMachine stateMachine) : base(stateMachine)
+    private static Collider[] _overlapBuffer = new Collider[1];
+
+    public PatrolState(HunterAgent hunter, StateMachine stateMachine)
+        : base(stateMachine)
     {
         _hunter = hunter;
     }
@@ -16,12 +17,13 @@ public class PatrolState : State
     public override void Enter()
     {
         _spawnTimer = 0f;
-        _hunter.UpdateHeadFeedback("PATROL", Color.orange);
+        _hunter.UpdateHeadFeedback("PATROL", new Color(1f, 0.5f, 0f));
     }
 
     public override void Update()
     {
         BoidAgent deadBoid = FindDeadBoid();
+
         if (deadBoid != null)
         {
             _hunter.TargetBoid = deadBoid;
@@ -32,6 +34,7 @@ public class PatrolState : State
         if (_hunter.TBATimer >= _hunter.TBA)
         {
             BoidAgent targetBoid = FindTargetBoid();
+
             if (targetBoid != null)
             {
                 _hunter.TargetBoid = targetBoid;
@@ -46,9 +49,11 @@ public class PatrolState : State
 
     private void PatrolWaypoints()
     {
-        if (_hunter.Waypoints == null || _hunter.Waypoints.Count == 0) return;
+        if (_hunter.Waypoints == null || _hunter.Waypoints.Count == 0)
+            return;
 
         Transform targetWaypoint = _hunter.Waypoints[_currentWaypointIndex];
+
         Vector3 targetPos = targetWaypoint.position;
         targetPos.y = 0f;
 
@@ -59,17 +64,18 @@ public class PatrolState : State
         currentPos.y = 0f;
 
         float sqrDistance = (targetPos - currentPos).sqrMagnitude;
-        float stopRadius = 0.3f;
 
-        if (sqrDistance <= stopRadius * stopRadius)
+        if (sqrDistance <= 0.09f)
         {
-            _currentWaypointIndex = (_currentWaypointIndex + 1) % _hunter.Waypoints.Count;
+            _currentWaypointIndex =
+                (_currentWaypointIndex + 1) % _hunter.Waypoints.Count;
         }
     }
 
     private void HandleInterestObjectSpawning()
     {
-        if (InterestObject.AllInterestObjects.Count >= 5) return;
+        if (InterestObject.AllInterestObjects.Count >= 5)
+            return;
 
         _spawnTimer += Time.deltaTime;
 
@@ -87,21 +93,43 @@ public class PatrolState : State
                     spawnPos = Bounds.Instance.OutOfBounds(spawnPos);
                 }
 
-                Object.Instantiate(_hunter.InterestObjectPrefab, spawnPos, Quaternion.identity);
+                Object.Instantiate(
+                    _hunter.InterestObjectPrefab,
+                    spawnPos,
+                    Quaternion.identity
+                );
             }
         }
     }
 
     private BoidAgent FindDeadBoid()
     {
-        float sqrPerception = _hunter.PerceptionRadius * _hunter.PerceptionRadius;
+        float sqrPerception =
+            _hunter.PerceptionRadius * _hunter.PerceptionRadius;
+
         Vector3 hunterPos = _hunter.transform.position;
         hunterPos.y = 0f;
 
-        for (int i = 0; i < BoidAgent.AllBoids.Count; i++)
+        int count = Physics.OverlapSphereNonAlloc(
+            _hunter.transform.position,
+            _hunter.PerceptionRadius,
+            _overlapBuffer,
+            _hunter.BoidLayerMask
+        );
+
+        for (int i = 0; i < count; i++)
         {
-            BoidAgent boid = BoidAgent.AllBoids[i];
-            if (boid != null && boid.IsDead && !boid.IsCollected && boid.gameObject.activeInHierarchy)
+            Collider col = _overlapBuffer[i];
+
+            if (col == null)
+                continue;
+
+            BoidAgent boid = col.GetComponentInParent<BoidAgent>();
+
+            if (boid != null &&
+                boid.IsDead &&
+                !boid.IsCollected &&
+                boid.gameObject.activeInHierarchy)
             {
                 Vector3 boidPos = boid.transform.position;
                 boidPos.y = 0f;
@@ -118,24 +146,42 @@ public class PatrolState : State
 
     private BoidAgent FindTargetBoid()
     {
-        float sqrPerception = _hunter.PerceptionRadius * _hunter.PerceptionRadius;
+        float sqrPerception =
+            _hunter.PerceptionRadius * _hunter.PerceptionRadius;
+
         Vector3 hunterPos = _hunter.transform.position;
         hunterPos.y = 0f;
+
+        int count = Physics.OverlapSphereNonAlloc(
+            _hunter.transform.position,
+            _hunter.PerceptionRadius,
+            _overlapBuffer,
+            _hunter.BoidLayerMask
+        );
 
         BoidAgent closest = null;
         float minSqrDistance = float.MaxValue;
 
-        for (int i = 0; i < BoidAgent.AllBoids.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            BoidAgent boid = BoidAgent.AllBoids[i];
-            if (boid != null && !boid.IsDead && boid.gameObject.activeInHierarchy)
+            Collider col = _overlapBuffer[i];
+
+            if (col == null)
+                continue;
+
+            BoidAgent boid = col.GetComponentInParent<BoidAgent>();
+
+            if (boid != null &&
+                !boid.IsDead &&
+                boid.gameObject.activeInHierarchy)
             {
                 Vector3 boidPos = boid.transform.position;
                 boidPos.y = 0f;
 
                 float sqrDist = (boidPos - hunterPos).sqrMagnitude;
 
-                if (sqrDist <= sqrPerception && sqrDist < minSqrDistance)
+                if (sqrDist <= sqrPerception &&
+                    sqrDist < minSqrDistance)
                 {
                     minSqrDistance = sqrDist;
                     closest = boid;
