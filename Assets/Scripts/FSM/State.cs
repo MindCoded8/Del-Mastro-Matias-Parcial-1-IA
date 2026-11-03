@@ -1,15 +1,18 @@
-using UnityEngine;
+using AI.FSM;
 
-public abstract class State
+namespace AI.FSM
 {
-    protected StateMachine StateMachine;
-
-    protected State(StateMachine stateMachine)
+    public abstract class State
     {
-        StateMachine = stateMachine;
-    }
+        protected StateMachine StateMachine;
 
-    public virtual void Enter() { }
-    public virtual void Exit() { }
-    public virtual void Update() { }
+        protected State(StateMachine stateMachine)
+        {
+            StateMachine = stateMachine;
+        }
+
+        public virtual void Enter() { }
+        public virtual void Exit() { }
+        public virtual void Update() { }
+    }
 }

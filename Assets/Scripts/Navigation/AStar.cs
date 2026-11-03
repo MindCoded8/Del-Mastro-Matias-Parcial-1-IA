@@ -1,170 +1,31 @@
-//using System.Collections.Generic;
-//using UnityEngine;
-
-//public static class AStar
-//{
-//    /// <summary>
-//    /// Calcula el camino A* más corto entre un nodo origen y un nodo destino.
-//    /// </summary>
-//    public static List<Node> GetPath(Node startNode, Node targetNode, bool excludeSafeZones = false)
-//    {
-//        if (startNode == null || targetNode == null)
-//            return new List<Node>();
-
-//        if (startNode == targetNode)
-//            return new List<Node> { startNode };
-
-//        List<Node> openSet = new List<Node> { startNode };
-//        HashSet<Node> closedSet = new HashSet<Node>();
-
-//        IReadOnlyList<Node> allNodes = Graph.Instance != null
-//            ? Graph.Instance.AllNodes
-//            : new List<Node>();
-
-//        for (int i = 0; i < allNodes.Count; i++)
-//        {
-//            allNodes[i].GCost = float.MaxValue;
-//            allNodes[i].HCost = 0f;
-//            allNodes[i].Parent = null;
-//        }
-
-//        startNode.GCost = 0f;
-//        startNode.HCost = Vector3.Distance(startNode.Position, targetNode.Position);
-
-//        while (openSet.Count > 0)
-//        {
-//            Node currentNode = openSet[0];
-//            for (int i = 1; i < openSet.Count; i++)
-//            {
-//                if (openSet[i].FCost < currentNode.FCost ||
-//                    (Mathf.Approximately(openSet[i].FCost, currentNode.FCost) &&
-//                     openSet[i].HCost < currentNode.HCost))
-//                {
-//                    currentNode = openSet[i];
-//                }
-//            }
-
-//            openSet.Remove(currentNode);
-//            closedSet.Add(currentNode);
-
-//            if (currentNode == targetNode)
-//            {
-//                return RetracePath(startNode, targetNode);
-//            }
-
-//            foreach (Node neighbor in currentNode.Neighbors)
-//            {
-//                if (neighbor == null || closedSet.Contains(neighbor))
-//                {
-//                    continue;
-//                }
-
-//                if (excludeSafeZones && neighbor.IsSafeZoneNode)
-//                {
-//                    continue;
-//                }
-
-//                float newMovementCostToNeighbor = currentNode.GCost + Vector3.Distance(currentNode.Position, neighbor.Position);
-
-//                if (newMovementCostToNeighbor < neighbor.GCost)
-//                {
-//                    neighbor.GCost = newMovementCostToNeighbor;
-//                    neighbor.HCost = Vector3.Distance(neighbor.Position, targetNode.Position);
-//                    neighbor.Parent = currentNode;
-
-//                    if (!openSet.Contains(neighbor))
-//                    {
-//                        openSet.Add(neighbor);
-//                    }
-//                }
-//            }
-//        }
-
-//        return new List<Node>();
-//    }
-
-//    private static List<Node> RetracePath(Node startNode, Node targetNode)
-//    {
-//        List<Node> path = new List<Node>();
-//        Node currentNode = targetNode;
-
-//        while (currentNode != startNode && currentNode != null)
-//        {
-//            path.Add(currentNode);
-//            currentNode = currentNode.Parent;
-//        }
-
-//        path.Add(startNode);
-//        path.Reverse();
-//        return path;
-//    }
-//}
-
-
-
 using System.Collections.Generic;
 using UnityEngine;
 
 public static class AStar
 {
-    /// <summary>
-    /// Calcula la ruta A* óptima entre dos nodos utilizando
-    /// Priority Queue/List y HashSet para el ClosedSet.
-    /// </summary>
-    public static List<Node> GetPath(
-        Node startNode,
-        Node targetNode,
-        bool excludeSafeZones = false
-    )
+    public static List<Node> GetPath(Node startNode, Node targetNode, bool excludeSafeZones = false)
     {
-        if (startNode == null || targetNode == null)
-        {
-            return new List<Node>();
-        }
-
+        List<Node> path = new List<Node>();
+        if (startNode == null || targetNode == null) return path;
         if (startNode == targetNode)
         {
-            return new List<Node> { startNode };
+            path.Add(startNode);
+            return path;
         }
 
         List<Node> openSet = new List<Node> { startNode };
-        HashSet<Node> closedSet = new HashSet<Node>(); // Estructura O(1) exigida por la cátedra
-
-        // Resetear costos antes de calcular
-        IReadOnlyList<Node> allNodes =
-            Graph.Instance != null
-                ? Graph.Instance.AllNodes
-                : new List<Node>();
-
-        for (int i = 0; i < allNodes.Count; i++)
-        {
-            allNodes[i].GCost = float.MaxValue;
-            allNodes[i].HCost = 0f;
-            allNodes[i].Parent = null;
-        }
+        HashSet<Node> closedSet = new HashSet<Node>();
 
         startNode.GCost = 0f;
-        startNode.HCost = Vector3.Distance(
-            startNode.Position,
-            targetNode.Position
-        );
+        startNode.HCost = GetHeuristic(startNode, targetNode);
+        startNode.Parent = null;
 
         while (openSet.Count > 0)
         {
-            // Seleccionar el nodo con el FCost más bajo
             Node currentNode = openSet[0];
             for (int i = 1; i < openSet.Count; i++)
             {
-                if (
-                    openSet[i].FCost < currentNode.FCost
-                    || (
-                        Mathf.Approximately(
-                            openSet[i].FCost,
-                            currentNode.FCost
-                        )
-                        && openSet[i].HCost < currentNode.HCost
-                    )
-                )
+                if (openSet[i].FCost < currentNode.FCost || (Mathf.Approximately(openSet[i].FCost, currentNode.FCost) && openSet[i].HCost < currentNode.HCost))
                 {
                     currentNode = openSet[i];
                 }
@@ -178,32 +39,18 @@ public static class AStar
                 return RetracePath(startNode, targetNode);
             }
 
-            foreach (Node neighbor in currentNode.Neighbors)
+            IReadOnlyList<Node> neighbors = currentNode.Neighbors;
+            for (int i = 0; i < neighbors.Count; i++)
             {
-                if (neighbor == null || closedSet.Contains(neighbor))
-                {
-                    continue;
-                }
+                Node neighbor = neighbors[i];
+                if (neighbor == null || !neighbor.gameObject.activeInHierarchy || closedSet.Contains(neighbor)) continue;
+                if (excludeSafeZones && neighbor.IsSafeZoneNode) continue;
 
-                if (excludeSafeZones && neighbor.IsSafeZoneNode)
-                {
-                    continue;
-                }
-
-                float newMovementCostToNeighbor =
-                    currentNode.GCost
-                    + Vector3.Distance(
-                        currentNode.Position,
-                        neighbor.Position
-                    );
-
-                if (newMovementCostToNeighbor < neighbor.GCost)
+                float newMovementCostToNeighbor = currentNode.GCost + Vector3.Distance(currentNode.Position, neighbor.Position);
+                if (newMovementCostToNeighbor < neighbor.GCost || !openSet.Contains(neighbor))
                 {
                     neighbor.GCost = newMovementCostToNeighbor;
-                    neighbor.HCost = Vector3.Distance(
-                        neighbor.Position,
-                        targetNode.Position
-                    );
+                    neighbor.HCost = GetHeuristic(neighbor, targetNode);
                     neighbor.Parent = currentNode;
 
                     if (!openSet.Contains(neighbor))
@@ -214,18 +61,15 @@ public static class AStar
             }
         }
 
-        return new List<Node>(); // Ruta no encontrada
+        return path;
     }
 
-    private static List<Node> RetracePath(
-        Node startNode,
-        Node targetNode
-    )
+    private static List<Node> RetracePath(Node startNode, Node targetNode)
     {
         List<Node> path = new List<Node>();
         Node currentNode = targetNode;
 
-        while (currentNode != startNode && currentNode != null)
+        while (currentNode != startNode)
         {
             path.Add(currentNode);
             currentNode = currentNode.Parent;
@@ -234,5 +78,10 @@ public static class AStar
         path.Add(startNode);
         path.Reverse();
         return path;
+    }
+
+    private static float GetHeuristic(Node nodeA, Node nodeB)
+    {
+        return (nodeA.Position - nodeB.Position).sqrMagnitude;
     }
 }

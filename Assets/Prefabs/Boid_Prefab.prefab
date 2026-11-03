@@ -45,15 +45,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7cd765713d4d684caa547903fd32aab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BoidAgent
-  _maxSpeed: 4
-  _maxSteering: 5
+  _maxSpeed: 3
+  _maxSteering: 4
   _maxHealth: 100
   _currentHealth: 0
   _respawnDelay: 3
   _separationRadius: 3
   _flockingRadius: 4
   _hunterDetectionRadius: 6
-  _interestObjectDetectionRadius: 10
+  _interestObjectDetectionRadius: 8
   _interactDistance: 8.5
   _slowingDistance: 3
   _separationWeight: 1.5

@@ -1,30 +1,31 @@
-
 using System;
 using System.Collections.Generic;
 
-public class StateMachine
+namespace AI.FSM
 {
-    public State CurrentState { get; private set; }
-    private Dictionary<Enum, State> _states = new Dictionary<Enum, State>();
-
-    public void RegisterState(Enum key, State state)
+    public class StateMachine
     {
-        _states[key] = state;
-    }
+        public State CurrentState { get; private set; }
+        private readonly Dictionary<Enum, State> _states = new Dictionary<Enum, State>();
 
-    public void ChangeState(Enum key)
-    {
-        if (!_states.TryGetValue(key, out State newState)) return;
+        public void RegisterState(Enum key, State state)
+        {
+            _states[key] = state;
+        }
 
-        if (newState == CurrentState) return;
+        public void ChangeState(Enum key)
+        {
+            if (!_states.TryGetValue(key, out State newState)) return;
+            if (newState == CurrentState) return;
 
-        CurrentState?.Exit();
-        CurrentState = newState;
-        CurrentState.Enter();
-    }
+            CurrentState?.Exit();
+            CurrentState = newState;
+            CurrentState.Enter();
+        }
 
-    public void Update()
-    {
-        CurrentState?.Update();
+        public void Update()
+        {
+            CurrentState?.Update();
+        }
     }
 }

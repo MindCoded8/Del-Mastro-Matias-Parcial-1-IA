@@ -121,7 +121,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7418660085128983205}
-  - component: {fileID: 2776496602594535262}
+  - component: {fileID: 3906646663934991169}
   m_Layer: 7
   m_Name: Hunter_Agent
   m_TagString: Untagged
@@ -138,14 +138,14 @@ Transform:
   m_GameObject: {fileID: 3708645265592209797}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -23.57, y: -0, z: -18.07}
+  m_LocalPosition: {x: 0, y: -0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5061857192058476738}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2776496602594535262
+--- !u!114 &3906646663934991169
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -154,26 +154,30 @@ MonoBehaviour:
   m_GameObject: {fileID: 3708645265592209797}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b7c7e9d832f116549bf576229aeb63ee, type: 3}
+  m_Script: {fileID: 11500000, guid: e501bff0b63d4d3449dda31fa3b6eaed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HunterAgent
-  _maxSpeed: 7
-  _maxSteering: 6
-  _perceptionRadius: 15
-  _rangeAttackRadius: 9
+  _maxSpeed: 5
+  _maxSteering: 5
+  _moveSpeed: 4.5
+  _rotationSpeed: 8
+  _requiredGathers: 3
+  _respawnTime: 5
+  _safeZoneWaitTime: 3
+  _visionRadius: 8
+  _rangeAttackRadius: 4
   _meleeAttackRadius: 2
-  _tba: 3
-  _spawnInterestObjectInterval: 6
+  _tba: 2.5
+  _obstacleMask:
+    serializedVersion: 2
+    m_Bits: 512
+  _wolfLayerMask:
+    serializedVersion: 2
+    m_Bits: 1024
   _boidLayerMask:
     serializedVersion: 2
     m_Bits: 64
-  _feedback: {fileID: 4337431380935820007}
   _interestObjectPrefab: {fileID: 6238412398300081098, guid: 5d025aae52223a64eb2645aa79b81ffc, type: 3}
-  _waypoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
 --- !u!1 &5802925312674533181
 GameObject:
   m_ObjectHideFlags: 0
