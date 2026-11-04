@@ -164,7 +164,7 @@ MonoBehaviour:
   _requiredGathers: 3
   _respawnTime: 5
   _safeZoneWaitTime: 3
-  _visionRadius: 8
+  _visionRadius: 3.2
   _rangeAttackRadius: 4
   _meleeAttackRadius: 2
   _tba: 2.5
@@ -178,6 +178,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   _interestObjectPrefab: {fileID: 6238412398300081098, guid: 5d025aae52223a64eb2645aa79b81ffc, type: 3}
+  _lineMaterial: {fileID: 0}
 --- !u!1 &5802925312674533181
 GameObject:
   m_ObjectHideFlags: 0

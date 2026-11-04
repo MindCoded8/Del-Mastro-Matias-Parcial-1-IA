@@ -144,9 +144,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55f5eca86e56d8841a9ae18e922853be, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WolfAgent
-  _moveSpeed: 3.5
-  _rotationSpeed: 8
+  _moveSpeed: 1.8
+  _rotationSpeed: 5
   _captureRadius: 1.2
   _waypoints: []
   _isPingPong: 0
+  _obstacleMask:
+    serializedVersion: 2
+    m_Bits: 0
   _hunterTarget: {fileID: 7418660085128983205, guid: 79cd53c5207430a44817e8f56f7f322e, type: 3}

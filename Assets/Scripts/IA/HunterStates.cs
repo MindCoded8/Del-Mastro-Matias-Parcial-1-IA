@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using AI.FSM;
 using UnityEngine;
 
-// 1. ESTADO SEARCH
 public class HunterSearchState : State
 {
     private HunterAgent _hunter;
@@ -54,7 +53,6 @@ public class HunterSearchState : State
         if (!_reachedCoto)
         {
             _hunter.MoveAlongPath(_path, ref _pathIndex);
-
             if (_pathIndex >= _path.Count || (ZoneManager.Instance != null && ZoneManager.Instance.HuntingGroundPoint != null && Vector3.Distance(_hunter.transform.position, ZoneManager.Instance.HuntingGroundPoint.position) < 4f))
             {
                 _reachedCoto = true;
@@ -84,6 +82,7 @@ public class HunterSearchState : State
         {
             Node startNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(_hunter.transform.position) : null;
             Node targetNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(ZoneManager.Instance.HuntingGroundPoint.position) : null;
+
             if (startNode != null && targetNode != null)
             {
                 _path = AStar.GetPath(startNode, targetNode);
@@ -98,8 +97,8 @@ public class HunterSearchState : State
 
         Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
         IReadOnlyList<Node> allNodes = Graph.Instance.AllNodes;
-
         List<Node> cotoNodes = new List<Node>();
+
         for (int i = 0; i < allNodes.Count; i++)
         {
             if (allNodes[i] != null && !allNodes[i].IsSafeZoneNode && Vector3.Distance(allNodes[i].Position, ZoneManager.Instance.HuntingGroundPoint.position) < 12f)
@@ -123,7 +122,6 @@ public class HunterSearchState : State
     }
 }
 
-// 2. ESTADO FLEE
 public class HunterFleeState : State
 {
     private HunterAgent _hunter;
@@ -147,8 +145,8 @@ public class HunterFleeState : State
         if (!_reachedSafeZone)
         {
             _hunter.MoveAlongPath(_path, ref _pathIndex);
-
             Node currentNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(_hunter.transform.position) : null;
+
             if ((currentNode != null && currentNode.IsSafeZoneNode) || _pathIndex >= _path.Count)
             {
                 _reachedSafeZone = true;
@@ -179,7 +177,6 @@ public class HunterFleeState : State
     {
         if (ZoneManager.Instance == null || ZoneManager.Instance.SafeZonePoints.Count == 0 || Graph.Instance == null) return;
 
-        Transform closestZone = null;
         float minPathLength = float.MaxValue;
         Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
 
@@ -202,7 +199,6 @@ public class HunterFleeState : State
                 if (dist < minPathLength)
                 {
                     minPathLength = dist;
-                    closestZone = zonePoint;
                     _path = tempPath;
                 }
             }
@@ -212,7 +208,6 @@ public class HunterFleeState : State
     }
 }
 
-// 3. ESTADO ATTACK
 public class HunterAttackState : State
 {
     private HunterAgent _hunter;
@@ -249,7 +244,6 @@ public class HunterAttackState : State
     }
 }
 
-// 4. ESTADO GATHER
 public class HunterGatherState : State
 {
     private HunterAgent _hunter;
@@ -300,7 +294,6 @@ public class HunterGatherState : State
     }
 }
 
-// 5. ESTADO EXIT
 public class HunterExitState : State
 {
     private HunterAgent _hunter;
@@ -325,8 +318,11 @@ public class HunterExitState : State
         {
             if (ZoneManager.Instance != null && ZoneManager.Instance.SpawnPoint != null)
             {
-                _hunter.transform.position = ZoneManager.Instance.SpawnPoint.position;
+                Vector3 position = ZoneManager.Instance.SpawnPoint.position;
+                position.y = _hunter.transform.position.y;
+                _hunter.transform.position = position;
             }
+
             _hunter.ResetGathers();
             StateMachine.ChangeState(HunterStates.Search);
         }
@@ -338,6 +334,7 @@ public class HunterExitState : State
         {
             Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
             Node targetNode = Graph.Instance.GetClosestNode(ZoneManager.Instance.ExitPoint.position);
+
             if (startNode != null && targetNode != null)
             {
                 _path = AStar.GetPath(startNode, targetNode);
@@ -347,7 +344,6 @@ public class HunterExitState : State
     }
 }
 
-// 6. ESTADO DEAD
 public class HunterDeadState : State
 {
     private HunterAgent _hunter;
@@ -369,8 +365,11 @@ public class HunterDeadState : State
         {
             if (ZoneManager.Instance != null && ZoneManager.Instance.SpawnPoint != null)
             {
-                _hunter.transform.position = ZoneManager.Instance.SpawnPoint.position;
+                Vector3 position = ZoneManager.Instance.SpawnPoint.position;
+                position.y = _hunter.transform.position.y;
+                _hunter.transform.position = position;
             }
+
             _hunter.ResetGathers();
             _hunter.SetHunterVisible(true);
             StateMachine.ChangeState(HunterStates.Search);

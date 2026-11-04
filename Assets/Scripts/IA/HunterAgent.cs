@@ -27,6 +27,7 @@ public class HunterAgent : Agent
 
     [Header("References")]
     [SerializeField] private GameObject _interestObjectPrefab;
+    [SerializeField] private Material _lineMaterial;
     private List<GameObject> _spawnedInterestObjects = new List<GameObject>();
 
     private StateMachine _stateMachine;
@@ -84,7 +85,10 @@ public class HunterAgent : Agent
         }
         _lineRenderer.startWidth = 0.1f;
         _lineRenderer.endWidth = 0.1f;
-        _lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        if (_lineMaterial != null)
+        {
+            _lineRenderer.material = _lineMaterial;
+        }
         _lineRenderer.startColor = Color.red;
         _lineRenderer.endColor = Color.yellow;
         _lineRenderer.enabled = false;

@@ -240,6 +240,11 @@ public class WolfAgent : MonoBehaviour
         {
             _currentPath.Clear();
             _pathIndex = 0;
+            if (_currentState == WolfState.Alerted || _currentState == WolfState.SearchingArea)
+            {
+                _currentState = WolfState.Patrol;
+                RecalculatePatrolPath();
+            }
             return;
         }
 
@@ -253,6 +258,11 @@ public class WolfAgent : MonoBehaviour
             {
                 _currentPath.Clear();
                 _pathIndex = 0;
+                if (_currentState == WolfState.Alerted || _currentState == WolfState.SearchingArea)
+                {
+                    _currentState = WolfState.Patrol;
+                    RecalculatePatrolPath();
+                }
                 return;
             }
         }
