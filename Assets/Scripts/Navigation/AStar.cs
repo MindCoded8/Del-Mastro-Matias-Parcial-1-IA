@@ -82,6 +82,6 @@ public static class AStar
 
     private static float GetHeuristic(Node nodeA, Node nodeB)
     {
-        return (nodeA.Position - nodeB.Position).sqrMagnitude;
+        return Vector3.Distance(nodeA.Position, nodeB.Position);
     }
 }

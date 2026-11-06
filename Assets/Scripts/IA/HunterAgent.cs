@@ -1,3 +1,5 @@
+
+
 using System.Collections.Generic;
 using AI.FSM;
 using UnityEngine;
@@ -28,8 +30,11 @@ public class HunterAgent : Agent
     [Header("References")]
     [SerializeField] private GameObject _interestObjectPrefab;
     [SerializeField] private Material _lineMaterial;
-    private List<GameObject> _spawnedInterestObjects = new List<GameObject>();
 
+    [Header("Animation")]
+    [SerializeField] private Animator _animator;
+
+    private List<GameObject> _spawnedInterestObjects = new List<GameObject>();
     private StateMachine _stateMachine;
     private int _currentGathers = 0;
     private float _tbaTimer = 0f;
@@ -39,10 +44,16 @@ public class HunterAgent : Agent
     private bool _isInSafeZone = false;
     private bool _isDead = false;
     private float _gatherCountdown = 0f;
-
+    private AgentFeedback _feedback;
     private LineRenderer _lineRenderer;
     private float _shotVisualTimer = 0f;
+    private int _lastPathIndex = -1;
+    private float _pathStuckTimer = 0f;
 
+    private Vector3 _lastPosition;
+    private bool _wasMoving;
+
+    public LayerMask ObstacleMask => _obstacleMask;
     public float MoveSpeed => _moveSpeed;
     public int RequiredGathers => _requiredGathers;
     public int CurrentGathers => _currentGathers;
@@ -54,7 +65,6 @@ public class HunterAgent : Agent
     public float TBA => _tba;
     public float TBATimer => _tbaTimer;
     public GameObject InterestObjectPrefab => _interestObjectPrefab;
-
     public Transform TargetBoid { get => _targetBoid; set => _targetBoid = value; }
     public bool IsTargetBoidEliminated { get => _isTargetBoidEliminated; set => _isTargetBoidEliminated = value; }
     public Transform DetectedWolf => _detectedWolf;
@@ -66,6 +76,7 @@ public class HunterAgent : Agent
     {
         InitializeFSM();
         SetupLineRenderer();
+        _lastPosition = transform.position;
     }
 
     private void Start()
@@ -128,6 +139,37 @@ public class HunterAgent : Agent
         }
 
         _stateMachine.Update();
+        UpdateFeedbackText();
+
+        bool isMoving = (transform.position - _lastPosition).sqrMagnitude > 0.0001f;
+        if (isMoving != _wasMoving && _animator != null)
+        {
+            _wasMoving = isMoving;
+            _animator.Play(isMoving ? "run" : "idle");
+        }
+        _lastPosition = transform.position;
+    }
+
+    public void SnapToSpawnPoint()
+    {
+        if (ZoneManager.Instance != null && ZoneManager.Instance.SpawnPoint != null)
+        {
+            Vector3 spawnPos = ZoneManager.Instance.SpawnPoint.position;
+            spawnPos.y = transform.position.y;
+
+            if (Graph.Instance != null)
+            {
+                Node closestNode = Graph.Instance.GetClosestNode(spawnPos);
+                if (closestNode != null)
+                {
+                    Vector3 nodePos = closestNode.Position;
+                    nodePos.y = transform.position.y;
+                    transform.position = nodePos;
+                    return;
+                }
+            }
+            transform.position = spawnPos;
+        }
     }
 
     public void TriggerShotVisual(Vector3 targetPos)
@@ -143,6 +185,11 @@ public class HunterAgent : Agent
 
     public void TrySpawnInterestObject()
     {
+        if (ZoneManager.Instance != null && ZoneManager.Instance.HuntingGroundPoint != null)
+        {
+            float distToCotoSqr = (transform.position - ZoneManager.Instance.HuntingGroundPoint.position).sqrMagnitude;
+            if (distToCotoSqr > 144f) return;
+        }
         for (int i = _spawnedInterestObjects.Count - 1; i >= 0; i--)
         {
             if (_spawnedInterestObjects[i] == null || !_spawnedInterestObjects[i].activeInHierarchy)
@@ -201,7 +248,17 @@ public class HunterAgent : Agent
 
     public void DetectBoids()
     {
-        if (_targetBoid != null && _targetBoid.gameObject.activeInHierarchy && !_isTargetBoidEliminated) return;
+        if (_targetBoid != null && !_isTargetBoidEliminated)
+        {
+            if (!_targetBoid.gameObject.activeInHierarchy || !IsBoidVisible(_targetBoid))
+            {
+                _targetBoid = null;
+            }
+            else
+            {
+                return;
+            }
+        }
 
         _targetBoid = null;
 
@@ -216,25 +273,52 @@ public class HunterAgent : Agent
             BoidAgent boid = hits[i].GetComponentInParent<BoidAgent>();
             if (boid == null || boid.IsCollected) continue;
 
-            Vector3 dir = (hits[i].transform.position - transform.position).normalized;
-            float dist = Vector3.Distance(transform.position, hits[i].transform.position);
-
-            if (!Physics.Raycast(transform.position + Vector3.up * 0.5f, dir, dist, _obstacleMask))
+            if (IsBoidVisible(boid.transform))
             {
-                if (dist < closestDist)
+                float sqrDist = (transform.position - boid.transform.position).sqrMagnitude;
+                if (sqrDist < closestDist)
                 {
-                    closestDist = dist;
+                    closestDist = sqrDist;
                     _targetBoid = boid.transform;
                 }
             }
         }
     }
 
-    public void AttackAndEliminateBoid(Transform boidTransform)
+    public bool IsBoidVisible(Transform boidTransform)
+    {
+        if (boidTransform == null || !boidTransform.gameObject.activeInHierarchy) return false;
+        Vector3 boidPos = boidTransform.position + Vector3.up * 0.3f;
+        Vector3 eyePos = transform.position + Vector3.up * 0.5f;
+        Vector3 dir = boidPos - eyePos;
+        float dist = dir.magnitude;
+
+        if (dist > _visionRadius) return false;
+
+        if (Physics.Raycast(eyePos, dir.normalized, out RaycastHit hit, dist, _obstacleMask))
+        {
+            if (hit.transform != boidTransform && !hit.transform.IsChildOf(boidTransform))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public void AttackAndEliminateBoid(Transform boidTransform, bool isMelee)
     {
         if (boidTransform == null) return;
 
-        TriggerShotVisual(boidTransform.position);
+        if (isMelee)
+        {
+            if (_lineRenderer != null) _lineRenderer.startColor = Color.red;
+            TriggerShotVisual(boidTransform.position);
+        }
+        else
+        {
+            if (_lineRenderer != null) _lineRenderer.startColor = Color.yellow;
+            TriggerShotVisual(boidTransform.position);
+        }
 
         BoidAgent boid = boidTransform.GetComponentInParent<BoidAgent>();
         if (boid != null)
@@ -289,22 +373,80 @@ public class HunterAgent : Agent
     {
         if (path == null || pathIndex >= path.Count) return;
 
+        if (pathIndex == _lastPathIndex)
+        {
+            _pathStuckTimer += Time.deltaTime;
+            if (_pathStuckTimer > 1.2f)
+            {
+                _pathStuckTimer = 0f;
+                pathIndex++;
+                if (pathIndex >= path.Count) return;
+            }
+        }
+        else
+        {
+            _lastPathIndex = pathIndex;
+            _pathStuckTimer = 0f;
+        }
+
         Vector3 targetPos = path[pathIndex].Position;
         targetPos.y = transform.position.y;
 
-        Vector3 dir = (targetPos - transform.position).normalized;
+        Vector3 dir = targetPos - transform.position;
+        dir.y = 0f;
 
-        if (dir.sqrMagnitude > 0.001f)
-        {
-            Quaternion targetRot = Quaternion.LookRotation(dir);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
-            transform.position += transform.forward * _moveSpeed * Time.deltaTime;
-        }
+        float dist = dir.magnitude;
 
-        if ((targetPos - transform.position).sqrMagnitude <= 0.4f * 0.4f)
+        if (dist <= 0.5f)
         {
             pathIndex++;
+            _pathStuckTimer = 0f;
+            return;
         }
+
+        if (dist > 0.001f)
+        {
+            Vector3 moveDir = dir / dist;
+            Quaternion targetRot = Quaternion.LookRotation(moveDir);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
+
+            float step = _moveSpeed * Time.deltaTime;
+            Vector3 rayOrigin = transform.position + Vector3.up * 0.5f;
+
+            if (Physics.Raycast(rayOrigin, moveDir, out RaycastHit hit, step + 0.4f, _obstacleMask))
+            {
+                Vector3 slideDir = Vector3.ProjectOnPlane(moveDir, hit.normal).normalized;
+                slideDir.y = 0f;
+                if (slideDir.sqrMagnitude > 0.01f)
+                {
+                    moveDir = slideDir;
+                }
+            }
+
+            transform.position += moveDir * step;
+        }
+    }
+
+    public Vector3 Pursuit(Transform targetTransform)
+    {
+        if (targetTransform == null) return Vector3.zero;
+
+        Vector3 targetPos = targetTransform.position;
+        targetPos.y = transform.position.y;
+
+        Agent targetAgent = targetTransform.GetComponentInParent<Agent>();
+        Vector3 targetVel = targetAgent != null ? targetAgent.Velocity : Vector3.zero;
+
+        Vector3 dir = targetPos - transform.position;
+        float dist = dir.magnitude;
+
+        float combinedSpeed = _moveSpeed + targetVel.magnitude;
+        float predictionTime = combinedSpeed > 0.001f ? dist / combinedSpeed : 0f;
+
+        Vector3 futurePos = targetPos + targetVel * predictionTime;
+        futurePos.y = transform.position.y;
+
+        return Seek(futurePos);
     }
 
     public Vector3 Seek(Vector3 targetPosition)
@@ -345,6 +487,27 @@ public class HunterAgent : Agent
     public void DieAndRespawn()
     {
         _stateMachine.ChangeState(HunterStates.Dead);
+    }
+
+    private void UpdateFeedbackText()
+    {
+        if (_feedback == null) _feedback = GetComponentInChildren<AgentFeedback>();
+        if (_feedback == null) return;
+
+        Color labelColor = Color.green;
+        string stateText = "HUNTER: SEARCH";
+        if (_stateMachine != null && _stateMachine.CurrentState != null)
+        {
+            string sName = _stateMachine.CurrentState.GetType().Name.Replace("Hunter", "").Replace("State", "").ToUpper();
+            stateText = $"HUNTER: {sName} ({_currentGathers}/{_requiredGathers})";
+            if (sName == "GATHER") stateText += $" ({_gatherCountdown:F1}s)";
+
+            if (sName == "FLEE") labelColor = Color.red;
+            else if (sName == "ATTACK") labelColor = Color.yellow;
+            else if (sName == "DEAD") labelColor = Color.gray;
+        }
+
+        _feedback.SetStateText(stateText, labelColor);
     }
 
     private void OnDrawGizmos()

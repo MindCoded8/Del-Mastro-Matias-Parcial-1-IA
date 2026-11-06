@@ -1,190 +1,123 @@
-//using UnityEngine;
-
-//public class AgentFeedback : MonoBehaviour
-//{
-//    [Header("Mesh Renderer Reference")]
-//    [SerializeField] private MeshRenderer _meshRenderer;
-
-//    [Header("Color Settings")]
-//    [SerializeField] private Color _normalColor = Color.white;
-//    [SerializeField] private Color _evadeColor = Color.yellow;
-//    [SerializeField] private Color _deadColor = Color.gray;
-
-//    [Header("World Space Text Settings")]
-//    [SerializeField] private Vector3 _textOffset = new Vector3(0f, 2.2f, 0f);
-//    [SerializeField] private int _fontSize = 24;
-//    [SerializeField] private float _characterSize = 0.15f;
-
-//    private TextMesh _textMesh;
-
-//    private void Awake()
-//    {
-//        if (_meshRenderer == null)
-//        {
-//            _meshRenderer = GetComponent<MeshRenderer>();
-//        }
-
-//        CreateFloatingText();
-//    }
-
-//    private void CreateFloatingText()
-//    {
-//        if (_textMesh != null) return;
-
-//        GameObject textObj = new GameObject("StateLabel");
-//        textObj.transform.SetParent(transform);
-//        textObj.transform.localPosition = _textOffset;
-//        textObj.transform.localRotation = Quaternion.identity;
-
-//        _textMesh = textObj.AddComponent<TextMesh>();
-//        _textMesh.alignment = TextAlignment.Center;
-//        _textMesh.anchor = TextAnchor.MiddleCenter;
-//        _textMesh.fontSize = _fontSize;
-//        _textMesh.characterSize = _characterSize;
-//        _textMesh.fontStyle = FontStyle.Bold;
-//        _textMesh.text = "";
-//    }
-
-//    private void LateUpdate()
-//    {
-//        if (_textMesh != null && Camera.main != null)
-//        {
-//            _textMesh.transform.rotation = Camera.main.transform.rotation;
-//        }
-//    }
-
-//    public void SetStateText(string text, Color color)
-//    {
-//        if (_textMesh == null)
-//        {
-//            CreateFloatingText();
-//        }
-
-//        if (_textMesh != null)
-//        {
-//            _textMesh.text = text;
-//            _textMesh.color = color;
-//        }
-//    }
-
-//    public void SetColor(Color color)
-//    {
-//        if (_meshRenderer != null && _meshRenderer.material != null)
-//        {
-//            _meshRenderer.material.color = color;
-//        }
-//    }
-
-//    public void UpdateBoidStateVisual(bool isDead, bool isEvading)
-//    {
-//        if (isDead)
-//        {
-//            SetColor(_deadColor);
-//            SetStateText("DEAD", _deadColor);
-//        }
-//        else if (isEvading)
-//        {
-//            SetColor(_evadeColor);
-//            SetStateText("EVADE!", _evadeColor);
-//        }
-//        else
-//        {
-//            SetColor(_normalColor);
-//            SetStateText("", Color.clear);
-//        }
-//    }
-//}
-
-
-
-
-using System.Collections;
 using UnityEngine;
 
 public class AgentFeedback : MonoBehaviour
 {
-    [Header("Mesh Renderer Reference")]
-    [SerializeField] private MeshRenderer _meshRenderer;
+    [Header("Mesh Reference (Acepta MeshRenderer y SkinnedMeshRenderer)")]
+    [SerializeField] private Renderer _meshRenderer;
 
-    [Header("Color Settings")]
-    [SerializeField] private Color _normalColor = Color.white;
-    [SerializeField] private Color _evadeColor = Color.yellow;
-    [SerializeField] private Color _deadColor = Color.gray;
+    [Header("Optional Text / Label Reference")]
+    [SerializeField] private TextMesh _textMesh;
 
-    [Header("World Space Text Settings")]
-    [SerializeField] private Vector3 _textOffset = new Vector3(0f, 2.2f, 0f);
-    [SerializeField] private int _fontSize = 24;
-    [SerializeField] private float _characterSize = 0.15f;
+    [Header("Text Height Offset")]
+    [SerializeField] private float _heightOffset = 0.8f;
 
-    [Header("Shot Visual Settings")]
-    [SerializeField] private Color _shotColor = Color.cyan;
-    [SerializeField] private float _shotDuration = 0.15f;
-
-    private TextMesh _textMesh;
-    private LineRenderer _lineRenderer;
+    private MaterialPropertyBlock _propBlock;
 
     private void Awake()
     {
+        _propBlock = new MaterialPropertyBlock();
+
         if (_meshRenderer == null)
         {
-            _meshRenderer = GetComponent<MeshRenderer>();
+            _meshRenderer = GetComponentInChildren<Renderer>();
         }
 
-        CreateFloatingText();
-        InitializeLineRenderer();
+        EnsureTextMesh();
     }
 
-    private void CreateFloatingText()
+    private void EnsureTextMesh()
     {
-        if (_textMesh != null)
-            return;
-
-        GameObject textObj = new GameObject("StateLabel");
-        textObj.transform.SetParent(transform);
-        textObj.transform.localPosition = _textOffset;
-        textObj.transform.localRotation = Quaternion.identity;
-
-        _textMesh = textObj.AddComponent<TextMesh>();
-        _textMesh.alignment = TextAlignment.Center;
-        _textMesh.anchor = TextAnchor.MiddleCenter;
-        _textMesh.fontSize = _fontSize;
-        _textMesh.characterSize = _characterSize;
-        _textMesh.fontStyle = FontStyle.Bold;
-        _textMesh.text = "";
-    }
-
-    private void InitializeLineRenderer()
-    {
-        _lineRenderer = GetComponent<LineRenderer>();
-        if (_lineRenderer == null)
+        if (_textMesh != null) return;
+        _textMesh = GetComponentInChildren<TextMesh>();
+        if (_textMesh == null)
         {
-            _lineRenderer = gameObject.AddComponent<LineRenderer>();
+            GameObject textObj = new GameObject("HeadText");
+            textObj.transform.SetParent(transform.root != null ? transform.root : transform);
+            _textMesh = textObj.AddComponent<TextMesh>();
+            _textMesh.characterSize = 0.12f;
+            _textMesh.fontSize = 24;
+            _textMesh.alignment = TextAlignment.Center;
+            _textMesh.anchor = TextAnchor.MiddleCenter;
+            _textMesh.color = Color.yellow;
+            _textMesh.fontStyle = FontStyle.Bold;
         }
-
-        _lineRenderer.startWidth = 0.1f;
-        _lineRenderer.endWidth = 0.02f;
-        _lineRenderer.positionCount = 2;
-        _lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-        _lineRenderer.startColor = _shotColor;
-        _lineRenderer.endColor = _shotColor;
-        _lineRenderer.enabled = false;
     }
 
     private void LateUpdate()
     {
-        if (_textMesh != null && Camera.main != null)
+        if (_textMesh != null)
         {
-            _textMesh.transform.rotation = Camera.main.transform.rotation;
+            Vector3 rootPos = (transform.root != null) ? transform.root.position : transform.position;
+            _textMesh.transform.position = rootPos + Vector3.up * _heightOffset;
+
+            if (Camera.main != null)
+            {
+                _textMesh.transform.rotation = Camera.main.transform.rotation;
+            }
+        }
+    }
+
+    public void UpdateBoidStateVisual(bool isDead, bool isEvading, bool isFeeding = false)
+    {
+        if (_meshRenderer == null)
+        {
+            _meshRenderer = GetComponentInChildren<Renderer>();
+        }
+
+        Color targetColor = Color.cyan;
+        string labelText = "BOID: FLOCKING";
+
+        if (isDead)
+        {
+            targetColor = Color.gray;
+            labelText = "BOID: DEAD";
+        }
+        else if (isEvading)
+        {
+            targetColor = Color.red;
+            labelText = "BOID: EVADING!";
+        }
+        else if (isFeeding)
+        {
+            targetColor = Color.yellow;
+            labelText = "BOID: FEEDING";
+        }
+
+        SetColor(targetColor);
+        SetStateText(labelText, targetColor);
+    }
+
+    public void SetColor(Color color)
+    {
+        if (_meshRenderer == null)
+        {
+            _meshRenderer = GetComponentInChildren<Renderer>();
+            if (_meshRenderer == null) return;
+        }
+
+        if (_propBlock == null) _propBlock = new MaterialPropertyBlock();
+        _meshRenderer.GetPropertyBlock(_propBlock);
+        
+        _propBlock.SetColor("_Color", color);
+        _propBlock.SetColor("_BaseColor", color);
+        _meshRenderer.SetPropertyBlock(_propBlock);
+
+        if (_meshRenderer.material != null)
+        {
+            if (_meshRenderer.material.HasProperty("_Color"))
+            {
+                _meshRenderer.material.color = color;
+            }
+            else if (_meshRenderer.material.HasProperty("_BaseColor"))
+            {
+                _meshRenderer.material.SetColor("_BaseColor", color);
+            }
         }
     }
 
     public void SetStateText(string text, Color color)
     {
-        if (_textMesh == null)
-        {
-            CreateFloatingText();
-        }
-
+        EnsureTextMesh();
         if (_textMesh != null)
         {
             _textMesh.text = text;
@@ -192,49 +125,7 @@ public class AgentFeedback : MonoBehaviour
         }
     }
 
-    public void SetColor(Color color)
+    public void ShowShotBeam(Vector3 origin, Vector3 targetPosition)
     {
-        if (_meshRenderer != null && _meshRenderer.material != null)
-        {
-            _meshRenderer.material.color = color;
-        }
-    }
-
-    public void UpdateBoidStateVisual(bool isDead, bool isEvading)
-    {
-        if (isDead)
-        {
-            SetColor(_deadColor);
-            SetStateText("DEAD", _deadColor);
-        }
-        else if (isEvading)
-        {
-            SetColor(_evadeColor);
-            SetStateText("EVADE!", _evadeColor);
-        }
-        else
-        {
-            SetColor(_normalColor);
-            SetStateText("", Color.clear);
-        }
-    }
-
-    public void ShowShotBeam(Vector3 startPoint, Vector3 endPoint)
-    {
-        StartCoroutine(RenderShotBeamRoutine(startPoint, endPoint));
-    }
-
-    private IEnumerator RenderShotBeamRoutine(Vector3 startPoint, Vector3 endPoint)
-    {
-        if (_lineRenderer == null)
-            yield break;
-
-        _lineRenderer.SetPosition(0, startPoint);
-        _lineRenderer.SetPosition(1, endPoint);
-        _lineRenderer.enabled = true;
-
-        yield return new WaitForSeconds(_shotDuration);
-
-        _lineRenderer.enabled = false;
     }
 }

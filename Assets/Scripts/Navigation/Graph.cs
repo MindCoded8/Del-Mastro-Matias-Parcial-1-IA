@@ -88,9 +88,16 @@ public class Graph : MonoBehaviour
 
     public Node GetClosestNode(Vector3 position, bool excludeSafeZones = false)
     {
+        Vector3 origin3D = position;
         position.y = 0f;
-        Node closest = null;
-        float minSqrDist = float.MaxValue;
+
+        Node closestVisible = null;
+        float minSqrDistVisible = float.MaxValue;
+
+        Node closestFallback = null;
+        float minSqrDistFallback = float.MaxValue;
+
+        Vector3 rayStart = origin3D + Vector3.up * _raycastHeightOffset;
 
         for (int i = 0; i < _allNodes.Count; i++)
         {
@@ -99,13 +106,38 @@ public class Graph : MonoBehaviour
             if (excludeSafeZones && node.IsSafeZoneNode) continue;
 
             float sqrDist = (node.Position - position).sqrMagnitude;
-            if (sqrDist < minSqrDist)
+            if (sqrDist < minSqrDistFallback)
             {
-                minSqrDist = sqrDist;
-                closest = node;
+                minSqrDistFallback = sqrDist;
+                closestFallback = node;
+            }
+
+            
+            Vector3 targetPos = node.Position + Vector3.up * _raycastHeightOffset;
+            Vector3 dir = targetPos - rayStart;
+            float dist = dir.magnitude;
+
+            if (dist > 0.01f)
+            {
+                if (!Physics.Raycast(rayStart, dir.normalized, dist, _obstacleMask))
+                {
+                    if (sqrDist < minSqrDistVisible)
+                    {
+                        minSqrDistVisible = sqrDist;
+                        closestVisible = node;
+                    }
+                }
+            }
+            else
+            {
+                if (sqrDist < minSqrDistVisible)
+                {
+                    minSqrDistVisible = sqrDist;
+                    closestVisible = node;
+                }
             }
         }
 
-        return closest;
+        return closestVisible != null ? closestVisible : closestFallback;
     }
 }

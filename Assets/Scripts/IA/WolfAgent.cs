@@ -1,3 +1,5 @@
+
+
 using System.Collections.Generic;
 using UnityEngine;
 #if UNITY_EDITOR
@@ -11,8 +13,9 @@ public class WolfAgent : MonoBehaviour
 {
     [Header("Movement Settings")]
     [SerializeField] private float _moveSpeed = 3.2f;
+    [SerializeField] private float _chaseSpeed = 5.2f;
     [SerializeField] private float _rotationSpeed = 8f;
-    [SerializeField] private float _captureRadius = 1.5f;
+    [SerializeField] private float _captureRadius = 1.8f;
 
     [Header("Patrol Settings")]
     [SerializeField] private List<Transform> _waypoints = new List<Transform>();
@@ -24,18 +27,26 @@ public class WolfAgent : MonoBehaviour
     [Header("Target")]
     [SerializeField] private Transform _hunterTarget;
 
+    [Header("Animation")]
+    [SerializeField] private Animator _animator;
+    [SerializeField] private string _walkingAnimation = "Walking_New";
+
     private FieldOfView _fov;
+    private string _currentAnimState = "";
     private WolfState _currentState = WolfState.Patrol;
     private Vector3 _lastKnownHunterPosition;
     private List<Node> _currentPath = new List<Node>();
     private int _pathIndex = 0;
     private float _howlEffectTimer = 0f;
+    private AgentFeedback _feedback;
+    private bool _isSubscribedToHowl = false;
 
     public WolfState CurrentState => _currentState;
 
     private void Awake()
     {
         _fov = GetComponent<FieldOfView>();
+        if (_animator == null) _animator = GetComponentInChildren<Animator>();
     }
 
     private void Start()
@@ -53,15 +64,17 @@ public class WolfAgent : MonoBehaviour
         if (WolfManager.Instance != null)
         {
             WolfManager.Instance.OnWolfHowlAlert -= ReceiveHowlAlert;
+            _isSubscribedToHowl = false;
         }
     }
 
     private void SubscribeToHowl()
     {
-        if (WolfManager.Instance != null)
+        if (!_isSubscribedToHowl && WolfManager.Instance != null)
         {
             WolfManager.Instance.OnWolfHowlAlert -= ReceiveHowlAlert;
             WolfManager.Instance.OnWolfHowlAlert += ReceiveHowlAlert;
+            _isSubscribedToHowl = true;
         }
     }
 
@@ -77,6 +90,8 @@ public class WolfAgent : MonoBehaviour
 
     private void Update()
     {
+        if (!_isSubscribedToHowl) SubscribeToHowl();
+
         if (_howlEffectTimer > 0) _howlEffectTimer -= Time.deltaTime;
 
         CheckPerception();
@@ -96,6 +111,8 @@ public class WolfAgent : MonoBehaviour
         }
 
         CheckCapture();
+        UpdateAnimations();
+        UpdateFeedbackText();
     }
 
     private void CheckPerception()
@@ -287,11 +304,13 @@ public class WolfAgent : MonoBehaviour
         targetPosition.y = transform.position.y;
         Vector3 dir = (targetPosition - transform.position).normalized;
 
+        float speed = (_currentState == WolfState.Chase) ? _chaseSpeed : _moveSpeed;
+
         if (dir.sqrMagnitude > 0.001f)
         {
             Quaternion targetRot = Quaternion.LookRotation(dir);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
-            transform.position += transform.forward * _moveSpeed * Time.deltaTime;
+            transform.position += transform.forward * speed * Time.deltaTime;
         }
     }
 
@@ -301,9 +320,11 @@ public class WolfAgent : MonoBehaviour
         if (target == null || !target.gameObject.activeInHierarchy) return;
 
         HunterAgent hunter = target.GetComponent<HunterAgent>();
-        if (hunter != null && hunter.IsDead) return;
+        if (hunter != null && (hunter.IsDead || hunter.IsInSafeZone)) return;
 
-        float sqrDist = (target.position - transform.position).sqrMagnitude;
+        Vector3 targetPos2D = new Vector3(target.position.x, transform.position.y, target.position.z);
+        float sqrDist = (targetPos2D - transform.position).sqrMagnitude;
+
         if (sqrDist <= _captureRadius * _captureRadius)
         {
             if (hunter != null)
@@ -311,6 +332,52 @@ public class WolfAgent : MonoBehaviour
                 hunter.DieAndRespawn();
             }
         }
+    }
+
+    private void UpdateAnimations()
+    {
+        if (_animator == null)
+        {
+            _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+        }
+
+        if (_currentAnimState != _walkingAnimation)
+        {
+            _currentAnimState = _walkingAnimation;
+            _animator.CrossFade(_walkingAnimation, 0.15f);
+        }
+    }
+
+    private void UpdateFeedbackText()
+    {
+        if (_feedback == null) _feedback = GetComponentInChildren<AgentFeedback>();
+        if (_feedback == null) return;
+
+        Color stateColor = Color.white;
+        string stateLabel = "PATROL";
+
+        switch (_currentState)
+        {
+            case WolfState.Patrol:
+                stateColor = Color.white;
+                stateLabel = "WOLF: PATROL";
+                break;
+            case WolfState.Alerted:
+                stateColor = Color.magenta;
+                stateLabel = "WOLF: ALERTED";
+                break;
+            case WolfState.SearchingArea:
+                stateColor = Color.yellow;
+                stateLabel = "WOLF: SEARCHING";
+                break;
+            case WolfState.Chase:
+                stateColor = Color.red;
+                stateLabel = "WOLF: CHASE";
+                break;
+        }
+
+        _feedback.SetStateText(stateLabel, stateColor);
     }
 
     private void OnDrawGizmos()

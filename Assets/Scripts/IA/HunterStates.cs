@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using AI.FSM;
 using UnityEngine;
 
+
 public class HunterSearchState : State
 {
     private HunterAgent _hunter;
@@ -50,10 +51,18 @@ public class HunterSearchState : State
             }
         }
 
+        _spawnTimer += Time.deltaTime;
+        if (_spawnTimer >= SPAWN_INTERVAL)
+        {
+            _spawnTimer = 0f;
+            SpawnInterestObject();
+        }
+
         if (!_reachedCoto)
         {
             _hunter.MoveAlongPath(_path, ref _pathIndex);
-            if (_pathIndex >= _path.Count || (ZoneManager.Instance != null && ZoneManager.Instance.HuntingGroundPoint != null && Vector3.Distance(_hunter.transform.position, ZoneManager.Instance.HuntingGroundPoint.position) < 4f))
+
+            if (_pathIndex >= _path.Count || (ZoneManager.Instance != null && ZoneManager.Instance.HuntingGroundPoint != null && Vector3.Distance(_hunter.transform.position, ZoneManager.Instance.HuntingGroundPoint.position) <= 6f))
             {
                 _reachedCoto = true;
                 CalculateRandomCotoPath();
@@ -66,26 +75,30 @@ public class HunterSearchState : State
             {
                 CalculateRandomCotoPath();
             }
-
-            _spawnTimer += Time.deltaTime;
-            if (_spawnTimer >= SPAWN_INTERVAL)
-            {
-                _spawnTimer = 0f;
-                SpawnInterestObject();
-            }
         }
     }
 
     private void CalculatePathToHuntingGround()
     {
-        if (ZoneManager.Instance != null && ZoneManager.Instance.HuntingGroundPoint != null)
+        if (ZoneManager.Instance != null && ZoneManager.Instance.HuntingGroundPoint != null && Graph.Instance != null)
         {
-            Node startNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(_hunter.transform.position) : null;
-            Node targetNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(ZoneManager.Instance.HuntingGroundPoint.position) : null;
+            Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
+            IReadOnlyList<Node> allNodes = Graph.Instance.AllNodes;
 
-            if (startNode != null && targetNode != null)
+            List<Node> cotoNodes = new List<Node>();
+            for (int i = 0; i < allNodes.Count; i++)
             {
-                _path = AStar.GetPath(startNode, targetNode);
+                if (allNodes[i] != null && !allNodes[i].IsSafeZoneNode && 
+                    Vector3.Distance(allNodes[i].Position, ZoneManager.Instance.HuntingGroundPoint.position) <= 8f)
+                {
+                    cotoNodes.Add(allNodes[i]);
+                }
+            }
+
+            if (cotoNodes.Count > 0)
+            {
+                Node randomTarget = cotoNodes[Random.Range(0, cotoNodes.Count)];
+                _path = AStar.GetPath(startNode, randomTarget);
                 _pathIndex = 0;
             }
         }
@@ -97,11 +110,11 @@ public class HunterSearchState : State
 
         Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
         IReadOnlyList<Node> allNodes = Graph.Instance.AllNodes;
-        List<Node> cotoNodes = new List<Node>();
 
+        List<Node> cotoNodes = new List<Node>();
         for (int i = 0; i < allNodes.Count; i++)
         {
-            if (allNodes[i] != null && !allNodes[i].IsSafeZoneNode && Vector3.Distance(allNodes[i].Position, ZoneManager.Instance.HuntingGroundPoint.position) < 12f)
+            if (allNodes[i] != null && !allNodes[i].IsSafeZoneNode && Vector3.Distance(allNodes[i].Position, ZoneManager.Instance.HuntingGroundPoint.position) <= 8f)
             {
                 cotoNodes.Add(allNodes[i]);
             }
@@ -121,6 +134,7 @@ public class HunterSearchState : State
         _hunter.TrySpawnInterestObject();
     }
 }
+
 
 public class HunterFleeState : State
 {
@@ -145,8 +159,8 @@ public class HunterFleeState : State
         if (!_reachedSafeZone)
         {
             _hunter.MoveAlongPath(_path, ref _pathIndex);
-            Node currentNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(_hunter.transform.position) : null;
 
+            Node currentNode = Graph.Instance != null ? Graph.Instance.GetClosestNode(_hunter.transform.position) : null;
             if ((currentNode != null && currentNode.IsSafeZoneNode) || _pathIndex >= _path.Count)
             {
                 _reachedSafeZone = true;
@@ -177,7 +191,8 @@ public class HunterFleeState : State
     {
         if (ZoneManager.Instance == null || ZoneManager.Instance.SafeZonePoints.Count == 0 || Graph.Instance == null) return;
 
-        float minPathLength = float.MaxValue;
+        Transform closestZone = null;
+        float minScore = float.MaxValue;
         Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
 
         for (int i = 0; i < ZoneManager.Instance.SafeZonePoints.Count; i++)
@@ -190,15 +205,54 @@ public class HunterFleeState : State
 
             if (tempPath != null && tempPath.Count > 0)
             {
-                float dist = 0f;
+                float pathLength = 0f;
                 for (int p = 0; p < tempPath.Count - 1; p++)
                 {
-                    dist += Vector3.Distance(tempPath[p].Position, tempPath[p + 1].Position);
+                    pathLength += Vector3.Distance(tempPath[p].Position, tempPath[p + 1].Position);
                 }
 
-                if (dist < minPathLength)
+                float penalty = 0f;
+                if (_hunter.DetectedWolf != null)
                 {
-                    minPathLength = dist;
+                    Vector3 wolfPos = _hunter.DetectedWolf.position;
+                    wolfPos.y = 0f;
+
+                    
+                    float minWolfDist = float.MaxValue;
+                    for (int p = 0; p < tempPath.Count; p++)
+                    {
+                        Vector3 nodePos = tempPath[p].Position;
+                        nodePos.y = 0f;
+                        float d = Vector3.Distance(nodePos, wolfPos);
+                        if (d < minWolfDist) minWolfDist = d;
+                    }
+
+                    
+                    if (minWolfDist < 4.5f)
+                    {
+                        penalty += (4.5f - minWolfDist) * 100f + 200f;
+                    }
+
+                    
+                    if (tempPath.Count > 1)
+                    {
+                        Vector3 startPos = _hunter.transform.position;
+                        startPos.y = 0f;
+                        Vector3 moveDir = (tempPath[1].Position - startPos).normalized;
+                        Vector3 wolfDir = (wolfPos - startPos).normalized;
+                        if (Vector3.Dot(moveDir, wolfDir) > 0.2f)
+                        {
+                            penalty += 300f;
+                        }
+                    }
+                }
+
+                float score = pathLength + penalty;
+
+                if (score < minScore)
+                {
+                    minScore = score;
+                    closestZone = zonePoint;
                     _path = tempPath;
                 }
             }
@@ -207,6 +261,7 @@ public class HunterFleeState : State
         _pathIndex = 0;
     }
 }
+
 
 public class HunterAttackState : State
 {
@@ -222,24 +277,49 @@ public class HunterAttackState : State
             return;
         }
 
-        if (_hunter.TargetBoid == null || !_hunter.TargetBoid.gameObject.activeInHierarchy)
+       
+        if (_hunter.TargetBoid == null || !_hunter.TargetBoid.gameObject.activeInHierarchy || !_hunter.IsBoidVisible(_hunter.TargetBoid))
         {
+            _hunter.TargetBoid = null;
             StateMachine.ChangeState(HunterStates.Search);
             return;
         }
 
         float dist = Vector3.Distance(_hunter.transform.position, _hunter.TargetBoid.position);
 
-        if (dist <= _hunter.RangeAttackRadius)
+        
+        if (dist <= _hunter.MeleeAttackRadius)
         {
             _hunter.ResetTBATimer();
-            _hunter.AttackAndEliminateBoid(_hunter.TargetBoid);
+            _hunter.AttackAndEliminateBoid(_hunter.TargetBoid, true); 
+            StateMachine.ChangeState(HunterStates.Gather);
+        }
+        else if (dist <= _hunter.RangeAttackRadius)
+        {
+            _hunter.ResetTBATimer();
+            _hunter.AttackAndEliminateBoid(_hunter.TargetBoid, false); 
             StateMachine.ChangeState(HunterStates.Gather);
         }
         else
         {
-            Vector3 steering = _hunter.Seek(_hunter.TargetBoid.position);
-            _hunter.transform.position += steering;
+            Vector3 steering = _hunter.Pursuit(_hunter.TargetBoid);
+            if (steering.sqrMagnitude > 0.001f)
+            {
+                Vector3 moveDir = steering.normalized;
+                moveDir.y = 0f;
+                float step = _hunter.MoveSpeed * Time.deltaTime;
+
+                Vector3 rayOrigin = _hunter.transform.position + Vector3.up * 0.5f;
+                if (Physics.Raycast(rayOrigin, moveDir, out RaycastHit hit, step + 0.4f, _hunter.ObstacleMask))
+                {
+                    Vector3 slideDir = Vector3.ProjectOnPlane(moveDir, hit.normal).normalized;
+                    slideDir.y = 0f;
+                    if (slideDir.sqrMagnitude > 0.01f) moveDir = slideDir;
+                }
+
+                _hunter.transform.position += moveDir * step;
+                _hunter.transform.forward = moveDir;
+            }
         }
     }
 }
@@ -269,7 +349,22 @@ public class HunterGatherState : State
         if (_hunter.TargetBoid != null && _hunter.TargetBoid.gameObject.activeInHierarchy)
         {
             Vector3 arriveSteering = _hunter.Arrive(_hunter.TargetBoid.position, 2.0f);
-            _hunter.transform.position += arriveSteering;
+            if (arriveSteering.sqrMagnitude > 0.001f)
+            {
+                Vector3 moveDir = arriveSteering.normalized;
+                moveDir.y = 0f;
+                float step = _hunter.MoveSpeed * Time.deltaTime;
+
+                Vector3 rayOrigin = _hunter.transform.position + Vector3.up * 0.5f;
+                if (Physics.Raycast(rayOrigin, moveDir, out RaycastHit hit, step + 0.4f, _hunter.ObstacleMask))
+                {
+                    Vector3 slideDir = Vector3.ProjectOnPlane(moveDir, hit.normal).normalized;
+                    slideDir.y = 0f;
+                    if (slideDir.sqrMagnitude > 0.01f) moveDir = slideDir;
+                }
+
+                _hunter.transform.position += moveDir * step;
+            }
         }
 
         _gatherTimer += Time.deltaTime;
@@ -294,6 +389,7 @@ public class HunterGatherState : State
     }
 }
 
+
 public class HunterExitState : State
 {
     private HunterAgent _hunter;
@@ -316,13 +412,7 @@ public class HunterExitState : State
 
         if (_pathIndex >= _path.Count)
         {
-            if (ZoneManager.Instance != null && ZoneManager.Instance.SpawnPoint != null)
-            {
-                Vector3 position = ZoneManager.Instance.SpawnPoint.position;
-                position.y = _hunter.transform.position.y;
-                _hunter.transform.position = position;
-            }
-
+            _hunter.SnapToSpawnPoint();
             _hunter.ResetGathers();
             StateMachine.ChangeState(HunterStates.Search);
         }
@@ -334,7 +424,6 @@ public class HunterExitState : State
         {
             Node startNode = Graph.Instance.GetClosestNode(_hunter.transform.position);
             Node targetNode = Graph.Instance.GetClosestNode(ZoneManager.Instance.ExitPoint.position);
-
             if (startNode != null && targetNode != null)
             {
                 _path = AStar.GetPath(startNode, targetNode);
@@ -343,6 +432,7 @@ public class HunterExitState : State
         }
     }
 }
+
 
 public class HunterDeadState : State
 {
@@ -363,13 +453,7 @@ public class HunterDeadState : State
 
         if (_timer >= _hunter.RespawnTime)
         {
-            if (ZoneManager.Instance != null && ZoneManager.Instance.SpawnPoint != null)
-            {
-                Vector3 position = ZoneManager.Instance.SpawnPoint.position;
-                position.y = _hunter.transform.position.y;
-                _hunter.transform.position = position;
-            }
-
+            _hunter.SnapToSpawnPoint();
             _hunter.ResetGathers();
             _hunter.SetHunterVisible(true);
             StateMachine.ChangeState(HunterStates.Search);
